@@ -15,7 +15,7 @@ connectDB(); // 🔴 MUST be here
 const app = express();
 
 app.use(cors({
-  origin: "http://localhost:5173",
+  origin: ["http://localhost:5173", "https://project-management-tool-ebon-ten.vercel.app"],
   credentials: true
 }));
 

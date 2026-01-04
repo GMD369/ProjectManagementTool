@@ -1,251 +1,358 @@
-import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import Sidebar from "../../components/Sidebar";
-import {
-  Users,
-  Folder,
-  ListChecks,
-  TrendingUp,
-  Activity,
-  AlertCircle
-} from "lucide-react";
-import { getAdminDashboardStats } from "../../api/admin";
-import { isAdmin } from "../../utils/auth";
+import { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import Sidebar from '../../components/Sidebar';
+import api from '../../api/axios';
 
 const AdminDashboard = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const navigate = useNavigate();
+  const [error, setError] = useState('');
 
-  useEffect(() => {
-    // Check if user is admin
-    if (!isAdmin()) {
-      navigate("/dashboard");
-      return;
-    }
-    fetchStats();
-  }, [navigate]);
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
 
-  const fetchStats = async () => {
+  const fetchDashboardStats = async () => {
     try {
-      setError(null);
-      const data = await getAdminDashboardStats();
-      setStats(data);
-    } catch (error) {
-      console.error("Error fetching admin stats:", error);
-      setError("Failed to load dashboard statistics");
+      const response = await api.get('/admin/dashboard');
+      setStats(response.data);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load dashboard data');
     } finally {
       setLoading(false);
     }
   };
 
+  // Filter to show only member users (exclude admins)
+  const memberUsers = stats?.recent?.users?.filter(user => user.role !== 'admin') || [];
+  
+  // Filter to show only projects owned by members (not admins)
+  const memberProjects = stats?.recent?.projects?.filter(project => project.owner?.role !== 'admin') || [];
+
+  useEffect(() => {
+    fetchDashboardStats();
+    
+    // Auto-refresh every 60 seconds
+    const interval = setInterval(() => {
+      fetchDashboardStats();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, []);
+
   if (loading) {
     return (
-      <div className="flex bg-linear-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
+      <div className="flex">
         <Sidebar />
-        <main className="flex-1 p-8">
-          <p className="text-gray-500">Loading...</p>
-        </main>
+        <div className="flex-1 min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading dashboard...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex">
+        <Sidebar />
+        <div className="flex-1 min-h-screen flex items-center justify-center">
+          <div className="bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex bg-linear-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
+    <div className="flex">
       <Sidebar />
-
-      <main className="flex-1 p-8 overflow-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Admin Dashboard
-          </h1>
-          <p className="text-gray-600">System overview and statistics</p>
-        </motion.div>
-
-        {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2">
-            <AlertCircle size={20} />
-            {error}
+      <div className="flex-1 min-h-screen bg-gray-50">
+        {/* Header with Navigation */}
+        <div className="bg-white shadow">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Admin Dashboard</h1>
+                <p className="mt-1 text-sm text-gray-600">Welcome back, {user?.name}</p>
+              </div>
+              <button
+                onClick={handleLogout}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium transition-colors"
+              >
+                Logout
+              </button>
+            </div>
+            {/* Navigation Menu */}
+            <nav className="flex gap-2">
+              <Link
+                to="/admin/dashboard"
+                className="px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-medium shadow-sm"
+              >
+                Dashboard
+              </Link>
+              <Link
+                to="/admin/users"
+                className="px-4 py-2 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-100 transition border border-gray-200"
+              >
+                Users
+              </Link>
+              <Link
+                to="/admin/projects"
+                className="px-4 py-2 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-100 transition border border-gray-200"
+              >
+                Projects
+              </Link>
+              <Link
+                to="/admin/tasks"
+                className="px-4 py-2 bg-white text-gray-700 rounded-lg font-medium hover:bg-gray-100 transition border border-gray-200"
+              >
+                Tasks
+              </Link>
+            </nav>
           </div>
-        )}
+        </div>
 
-        {/* Overview Stats */}
-        <div className="grid md:grid-cols-3 gap-6 mb-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <StatCard
-            icon={<Users className="text-blue-600" size={32} />}
             title="Total Users"
             value={stats?.totals?.users || 0}
-            color="blue"
+            icon="👥"
+            bgColor="bg-blue-500"
           />
           <StatCard
-            icon={<Folder className="text-purple-600" size={32} />}
             title="Total Projects"
             value={stats?.totals?.projects || 0}
-            color="purple"
+            icon="📁"
+            bgColor="bg-green-500"
           />
           <StatCard
-            icon={<ListChecks className="text-green-600" size={32} />}
             title="Total Tasks"
             value={stats?.totals?.tasks || 0}
-            color="green"
+            icon="✅"
+            bgColor="bg-purple-500"
           />
         </div>
 
-        {/* Detailed Statistics */}
-        <div className="grid md:grid-cols-2 gap-6 mb-8">
+        {/* Charts Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
           {/* Tasks by Status */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg"
-          >
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Activity size={24} className="text-blue-600" />
-              Tasks by Status
-            </h3>
+          <ChartCard title="Tasks by Status">
             <div className="space-y-3">
-              {stats?.tasksByStatus?.map((item) => (
-                <div key={item._id} className="flex justify-between items-center">
-                  <span className="text-gray-700 capitalize">{item._id || "No Status"}</span>
-                  <span className="font-bold text-blue-600">{item.count}</span>
-                </div>
+              {stats?.tasksByStatus?.map((item, index) => (
+                <ProgressBar
+                  key={index}
+                  label={item._id}
+                  count={item.count}
+                  total={stats?.totals?.tasks}
+                  color={getStatusColor(item._id)}
+                />
               ))}
             </div>
-          </motion.div>
-
-          {/* Tasks by Priority */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg"
-          >
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <TrendingUp size={24} className="text-purple-600" />
-              Tasks by Priority
-            </h3>
-            <div className="space-y-3">
-              {stats?.tasksByPriority?.map((item) => (
-                <div key={item._id} className="flex justify-between items-center">
-                  <span className="text-gray-700 capitalize">{item._id}</span>
-                  <span className="font-bold text-purple-600">{item.count}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Users by Role */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg"
-          >
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Users size={24} className="text-green-600" />
-              Users by Role
-            </h3>
-            <div className="space-y-3">
-              {stats?.usersByRole?.map((item) => (
-                <div key={item._id} className="flex justify-between items-center">
-                  <span className="text-gray-700 capitalize">{item._id}</span>
-                  <span className="font-bold text-green-600">{item.count}</span>
-                </div>
-              ))}
-            </div>
-          </motion.div>
+          </ChartCard>
 
           {/* Projects by Status */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg"
-          >
-            <h3 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-              <Folder size={24} className="text-orange-600" />
-              Projects by Status
-            </h3>
+          <ChartCard title="Projects by Status">
             <div className="space-y-3">
-              {stats?.projectsByStatus?.map((item) => (
-                <div key={item._id} className="flex justify-between items-center">
-                  <span className="text-gray-700 capitalize">{item._id}</span>
-                  <span className="font-bold text-orange-600">{item.count}</span>
-                </div>
+              {stats?.projectsByStatus?.map((item, index) => (
+                <ProgressBar
+                  key={index}
+                  label={item._id}
+                  count={item.count}
+                  total={stats?.totals?.projects}
+                  color={getStatusColor(item._id)}
+                />
               ))}
             </div>
-          </motion.div>
+          </ChartCard>
+
+          {/* Tasks by Priority */}
+          <ChartCard title="Tasks by Priority">
+            <div className="space-y-3">
+              {stats?.tasksByPriority?.map((item, index) => (
+                <ProgressBar
+                  key={index}
+                  label={item._id}
+                  count={item.count}
+                  total={stats?.totals?.tasks}
+                  color={getPriorityColor(item._id)}
+                />
+              ))}
+            </div>
+          </ChartCard>
+
+          {/* User Distribution */}
+          <ChartCard title="User Distribution">
+            <div className="flex justify-around items-center h-full">
+              <div className="text-center">
+                <div className="text-4xl font-bold text-blue-600">
+                  {stats?.usersByRole?.find(u => u._id === 'admin')?.count || 0}
+                </div>
+                <div className="text-sm text-gray-600 mt-2">Admins</div>
+              </div>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-green-600">
+                  {stats?.usersByRole?.find(u => u._id === 'member')?.count || 0}
+                </div>
+                <div className="text-sm text-gray-600 mt-2">Members</div>
+              </div>
+            </div>
+          </ChartCard>
         </div>
 
-        {/* Recent Activity */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Recent Users */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-            className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg"
-          >
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Recent Users</h3>
-            <div className="space-y-3">
-              {stats?.recent?.users?.map((user) => (
-                <div key={user._id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                  <div className="w-10 h-10 bg-linear-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-                    {user.name?.charAt(0).toUpperCase()}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-gray-800">{user.name}</p>
-                    <p className="text-sm text-gray-500">{user.email}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* Recent Projects */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
-            className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg"
-          >
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Recent Projects</h3>
-            <div className="space-y-3">
-              {stats?.recent?.projects?.map((project) => (
-                <div key={project._id} className="p-3 bg-gray-50 rounded-lg">
-                  <p className="font-semibold text-gray-800">{project.title}</p>
-                  <p className="text-sm text-gray-500">
-                    Owner: {project.owner?.name}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </motion.div>
+        {/* Recent Users */}
+        <div className="bg-white rounded-lg shadow mb-6">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">Recent Members (Non-Admin Users)</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {memberUsers.length > 0 ? memberUsers.map((user) => (
+                  <tr key={user._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                        {user.role}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan="4" className="px-6 py-4 text-center text-sm text-gray-500">
+                      No member users found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </main>
+
+        {/* Recent Projects */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-900">Recent Member Projects</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Owner</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {memberProjects.length > 0 ? memberProjects.map((project) => (
+                  <tr key={project._id}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{project.title}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{project.owner?.name || 'N/A'}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {new Date(project.createdAt).toLocaleDateString()}
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan="3" className="px-6 py-4 text-center text-sm text-gray-500">
+                      No member projects found
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      </div>
     </div>
   );
 };
 
-const StatCard = ({ icon, title, value, color }) => (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.9 }}
-    animate={{ opacity: 1, scale: 1 }}
-    whileHover={{ y: -5 }}
-    className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg hover:shadow-xl transition-all"
-  >
-    <div className="flex items-center justify-between mb-4">
-      {icon}
-      <span className={`text-3xl font-bold text-${color}-600`}>{value}</span>
+// Helper Components
+const StatCard = ({ title, value, icon, bgColor }) => (
+  <div className="bg-white rounded-lg shadow p-6">
+    <div className="flex items-center justify-between">
+      <div>
+        <p className="text-sm font-medium text-gray-600">{title}</p>
+        <p className="text-3xl font-bold text-gray-900 mt-2">{value}</p>
+      </div>
+      <div className={`${bgColor} rounded-full p-4 text-white text-3xl`}>
+        {icon}
+      </div>
     </div>
-    <h3 className="text-gray-600 font-medium">{title}</h3>
-  </motion.div>
+  </div>
 );
+
+const ChartCard = ({ title, children }) => (
+  <div className="bg-white rounded-lg shadow p-6">
+    <h3 className="text-lg font-semibold text-gray-900 mb-4">{title}</h3>
+    {children}
+  </div>
+);
+
+const ProgressBar = ({ label, count, total, color }) => {
+  const percentage = total > 0 ? (count / total) * 100 : 0;
+  
+  return (
+    <div>
+      <div className="flex justify-between text-sm mb-1">
+        <span className="text-gray-700 capitalize">{label}</span>
+        <span className="text-gray-600">{count}</span>
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-2">
+        <div
+          className={`${color} h-2 rounded-full transition-all duration-300`}
+          style={{ width: `${percentage}%` }}
+        />
+      </div>
+    </div>
+  );
+};
+
+// Helper Functions
+const getStatusColor = (status) => {
+  const colors = {
+    'todo': 'bg-gray-500',
+    'planning': 'bg-yellow-500',
+    'in-progress': 'bg-blue-500',
+    'review': 'bg-purple-500',
+    'completed': 'bg-green-500',
+    'on-hold': 'bg-orange-500',
+  };
+  return colors[status] || 'bg-gray-500';
+};
+
+const getPriorityColor = (priority) => {
+  const colors = {
+    'low': 'bg-green-500',
+    'medium': 'bg-yellow-500',
+    'high': 'bg-orange-500',
+    'urgent': 'bg-red-500',
+  };
+  return colors[priority] || 'bg-gray-500';
+};
 
 export default AdminDashboard;

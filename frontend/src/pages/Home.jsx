@@ -1,143 +1,170 @@
-import React from "react";
-import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import {
-  LayoutDashboard,
-  ListChecks,
-  Users,
-  TrendingUp,
-  Zap,
-  Shield
-} from "lucide-react";
-import Navbar from "../components/Navbar";
-import Footer from "../components/Footer";
+import { CheckCircle2, Users, BarChart3, Clock, Zap, Shield } from "lucide-react";
 
 const Home = () => {
   return (
-    <>
-      <Navbar />
-
-      {/* Hero */}
-      <section className="relative bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 py-32 overflow-hidden">
-        {/* Background decoration */}
-        <div className="absolute inset-0 overflow-hidden">
-          <motion.div
-            animate={{ 
-              scale: [1, 1.2, 1],
-              rotate: [0, 180, 360]
-            }}
-            transition={{ duration: 20, repeat: Infinity }}
-            className="absolute -top-24 -right-24 w-96 h-96 bg-blue-300 rounded-full opacity-20 blur-3xl"
-          />
-          <motion.div
-            animate={{ 
-              scale: [1, 1.3, 1],
-              rotate: [360, 180, 0]
-            }}
-            transition={{ duration: 15, repeat: Infinity }}
-            className="absolute -bottom-24 -left-24 w-96 h-96 bg-purple-300 rounded-full opacity-20 blur-3xl"
-          />
+    <div className="min-h-screen bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700">
+      {/* Navigation */}
+      <nav className="bg-white/10 backdrop-blur-md border-b border-white/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-16">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center">
+                <BarChart3 className="text-indigo-600" size={24} />
+              </div>
+              <span className="text-2xl font-bold text-white">ProjectHub</span>
+            </div>
+            <div className="flex gap-4">
+              <Link
+                to="/login"
+                className="px-6 py-2 text-white hover:text-white/80 font-medium transition-colors"
+              >
+                Sign In
+              </Link>
+              <Link
+                to="/register"
+                className="px-6 py-2 bg-white text-indigo-600 rounded-lg hover:bg-white/90 font-medium transition-all shadow-lg hover:shadow-xl"
+              >
+                Get Started
+              </Link>
+            </div>
+          </div>
         </div>
+      </nav>
 
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="relative max-w-6xl mx-auto px-6 text-center"
-        >
-          <motion.h1 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-6xl md:text-7xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-6"
-          >
-            Manage Projects Smarter
-          </motion.h1>
-          <motion.p 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-gray-600 text-xl mb-10 max-w-2xl mx-auto"
-          >
-            A modern project management platform to plan, track,
-            and collaborate with your team seamlessly.
-          </motion.p>
-
-          <motion.div 
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.6 }}
-            className="flex justify-center gap-4"
-          >
-            <Link
-              to="/register"
-              className="group relative bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-2xl transform hover:-translate-y-1 transition-all duration-200"
-            >
-              <span className="relative z-10">Start Free</span>
-              <motion.div
-                className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-xl opacity-0 group-hover:opacity-100 transition-opacity"
-              />
-            </Link>
-            <Link
-              to="/login"
-              className="border-2 border-gray-300 px-8 py-4 rounded-xl font-semibold hover:bg-white hover:border-blue-500 hover:text-blue-600 hover:shadow-lg transform hover:-translate-y-1 transition-all duration-200"
-            >
-              Login
-            </Link>
-          </motion.div>
-        </motion.div>
-      </section>
-
-      {/* Features */}
-      <section className="py-24 bg-white">
-        <div className="max-w-6xl mx-auto px-6">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="text-center mb-16"
-          >
-            <h2 className="text-4xl font-bold text-gray-800 mb-4">Powerful Features</h2>
-            <p className="text-gray-600 text-lg">Everything you need to manage projects efficiently</p>
-          </motion.div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <Feature icon={<LayoutDashboard />} title="Dashboard" desc="Overview of all projects and tasks in one place" delay={0.1} />
-            <Feature icon={<ListChecks />} title="Task Control" desc="Create, assign, and update tasks easily" delay={0.2} />
-            <Feature icon={<Users />} title="Team Work" desc="Collaborate with team members efficiently" delay={0.3} />
-            <Feature icon={<TrendingUp />} title="Progress Tracking" desc="Track performance and completion rates" delay={0.4} />
-            <Feature icon={<Zap />} title="Lightning Fast" desc="Built for speed and performance" delay={0.5} />
-            <Feature icon={<Shield />} title="Secure" desc="Your data is safe and encrypted" delay={0.6} />
+      {/* Hero Section */}
+      <section className="relative py-20 sm:py-32">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-white mb-6 leading-tight">
+              Manage Projects
+              <br />
+              <span className="text-blue-200">Like a Pro</span>
+            </h1>
+            <p className="text-xl sm:text-2xl text-white/90 mb-12 max-w-3xl mx-auto">
+              Streamline your workflow, collaborate seamlessly, and deliver projects on time.
+              The ultimate project management solution for modern teams.
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <Link
+                to="/register"
+                className="px-8 py-4 bg-white text-indigo-600 rounded-xl hover:bg-white/90 transition-all font-semibold text-lg shadow-2xl hover:shadow-3xl transform hover:scale-105"
+              >
+                Start Free Trial
+              </Link>
+              <Link
+                to="/login"
+                className="px-8 py-4 bg-white/20 backdrop-blur-sm text-white rounded-xl hover:bg-white/30 transition-all font-semibold text-lg border-2 border-white/30"
+              >
+                Sign In
+              </Link>
+            </div>
           </div>
         </div>
       </section>
 
-      <Footer />
-    </>
+      {/* Features Section */}
+      <section className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+              Everything You Need
+            </h2>
+            <p className="text-xl text-gray-600 max-w-2xl mx-auto">
+              Powerful features to help you manage projects efficiently and boost team productivity
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <FeatureCard
+              icon={<BarChart3 size={32} />}
+              title="Real-time Dashboard"
+              description="Get instant insights into project progress, team performance, and upcoming deadlines with beautiful visualizations."
+              gradient="from-blue-500 to-indigo-600"
+            />
+            <FeatureCard
+              icon={<CheckCircle2 size={32} />}
+              title="Task Management"
+              description="Create, assign, and track tasks effortlessly. Set priorities, deadlines, and monitor completion status."
+              gradient="from-purple-500 to-pink-600"
+            />
+            <FeatureCard
+              icon={<Users size={32} />}
+              title="Team Collaboration"
+              description="Work together seamlessly with real-time updates, shared workspaces, and instant communication."
+              gradient="from-green-500 to-teal-600"
+            />
+            <FeatureCard
+              icon={<Clock size={32} />}
+              title="Time Tracking"
+              description="Monitor time spent on tasks and projects. Generate detailed reports for better resource allocation."
+              gradient="from-orange-500 to-red-600"
+            />
+            <FeatureCard
+              icon={<Zap size={32} />}
+              title="Automation"
+              description="Automate repetitive tasks and workflows. Save time and reduce manual errors with smart automation."
+              gradient="from-yellow-500 to-orange-600"
+            />
+            <FeatureCard
+              icon={<Shield size={32} />}
+              title="Secure & Reliable"
+              description="Enterprise-grade security with role-based access control. Your data is always safe and protected."
+              gradient="from-indigo-500 to-purple-600"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-20 bg-gradient-to-br from-indigo-600 via-purple-600 to-blue-700">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-4xl sm:text-5xl font-bold text-white mb-6">
+            Ready to Get Started?
+          </h2>
+          <p className="text-xl text-white/90 mb-10">
+            Join thousands of teams already using ProjectHub to manage their projects efficiently
+          </p>
+          <Link
+            to="/register"
+            className="inline-block px-10 py-4 bg-white text-indigo-600 rounded-xl hover:bg-white/90 transition-all font-semibold text-lg shadow-2xl hover:shadow-3xl transform hover:scale-105"
+          >
+            Create Free Account
+          </Link>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-indigo-600 rounded-full flex items-center justify-center">
+                <BarChart3 className="text-white" size={24} />
+              </div>
+              <span className="text-2xl font-bold">ProjectHub</span>
+            </div>
+            <p className="text-gray-400 mb-4">
+              The ultimate project management solution for modern teams
+            </p>
+            <p className="text-gray-500 text-sm">
+              © 2026 ProjectHub. All rights reserved.
+            </p>
+          </div>
+        </div>
+      </footer>
+    </div>
   );
 };
 
-const Feature = ({ icon, title, desc, delay }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true }}
-    transition={{ delay }}
-    whileHover={{ y: -8, scale: 1.02 }}
-    className="relative p-8 border border-gray-200 rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 bg-gradient-to-br from-white to-gray-50 group overflow-hidden"
-  >
-    <motion.div
-      className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 opacity-0 group-hover:opacity-5 transition-opacity"
-    />
-    <motion.div 
-      whileHover={{ scale: 1.1, rotate: 5 }}
-      className="text-blue-600 mb-4 p-3 bg-blue-100 rounded-lg inline-block"
-    >
+const FeatureCard = ({ icon, title, description, gradient }) => (
+  <div className="bg-white rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2 border border-gray-100">
+    <div className={`w-16 h-16 bg-gradient-to-br ${gradient} rounded-xl flex items-center justify-center text-white mb-6 shadow-lg`}>
       {icon}
-    </motion.div>
-    <h3 className="font-bold text-xl mb-2 text-gray-800">{title}</h3>
-    <p className="text-gray-600">{desc}</p>
-  </motion.div>
+    </div>
+    <h3 className="text-xl font-bold text-gray-900 mb-3">{title}</h3>
+    <p className="text-gray-600 leading-relaxed">{description}</p>
+  </div>
 );
 
 export default Home;

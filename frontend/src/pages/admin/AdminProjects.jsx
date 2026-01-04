@@ -1,192 +1,346 @@
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import Sidebar from "../../components/Sidebar";
-import {
-  Folder,
-  Trash2,
-  Calendar,
-  Users,
-  AlertCircle,
-  CheckCircle2,
-  Eye
-} from "lucide-react";
-import { adminGetAllProjects, adminDeleteProject } from "../../api/admin";
-import { isAdmin } from "../../utils/auth";
+import { useState, useEffect } from 'react';
+import Sidebar from '../../components/Sidebar';
+import api from '../../api/axios';
 
 const AdminProjects = () => {
   const [projects, setProjects] = useState([]);
+  const [filteredProjects, setFilteredProjects] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    status: '',
+    startDate: '',
+    endDate: ''
+  });
 
   useEffect(() => {
-    if (!isAdmin()) {
-      navigate("/dashboard");
-      return;
-    }
     fetchProjects();
-  }, [navigate]);
+  }, []);
+
+  useEffect(() => {
+    if (Array.isArray(projects)) {
+      filterProjects();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, statusFilter, projects]);
 
   const fetchProjects = async () => {
     try {
-      setError(null);
-      const data = await adminGetAllProjects();
-      setProjects(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-      setError("Failed to load projects");
+      const response = await api.get('/admin/projects');
+      // Handle both array response and object with projects property
+      const projectsData = Array.isArray(response.data) 
+        ? response.data 
+        : (response.data.projects && Array.isArray(response.data.projects) 
+          ? response.data.projects 
+          : []);
+      setProjects(projectsData);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load projects');
+      setProjects([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteProject = async (projectId) => {
-    if (window.confirm("Are you sure you want to delete this project? This action cannot be undone.")) {
-      try {
-        setError(null);
-        await adminDeleteProject(projectId);
-        setSuccess("Project deleted successfully!");
-        fetchProjects();
-        setTimeout(() => setSuccess(null), 3000);
-      } catch (error) {
-        console.error("Error deleting project:", error);
-        setError(error.response?.data?.message || "Failed to delete project");
-      }
+  const filterProjects = () => {
+    if (!Array.isArray(projects)) {
+      setFilteredProjects([]);
+      return;
+    }
+    
+    // Filter to show only member projects (exclude admin-owned projects)
+    let filtered = projects.filter(project => project.owner?.role !== 'admin');
+
+    if (searchTerm) {
+      filtered = filtered.filter(project =>
+        project.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        project.description?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(project => project.status === statusFilter);
+    }
+
+    setFilteredProjects(filtered);
+  };
+
+  const handleEditClick = (project) => {
+    setSelectedProject(project);
+    setEditFormData({
+      title: project.title,
+      description: project.description,
+      status: project.status,
+      startDate: project.startDate ? new Date(project.startDate).toISOString().split('T')[0] : '',
+      endDate: project.endDate ? new Date(project.endDate).toISOString().split('T')[0] : ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditConfirm = async () => {
+    try {
+      await api.put(`/projects/${selectedProject._id}`, editFormData);
+      setSuccess('Project updated successfully');
+      fetchProjects();
+      setShowEditModal(false);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update project');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "planning": return "bg-blue-100 text-blue-700";
-      case "active": return "bg-green-100 text-green-700";
-      case "on-hold": return "bg-yellow-100 text-yellow-700";
-      case "completed": return "bg-purple-100 text-purple-700";
-      default: return "bg-gray-100 text-gray-700";
+  const handleDeleteClick = (project) => {
+    setSelectedProject(project);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await api.delete(`/admin/projects/${selectedProject._id}`);
+      setSuccess('Project and associated tasks deleted successfully');
+      setProjects(projects.filter(p => p._id !== selectedProject._id));
+      setShowDeleteModal(false);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete project');
+      setTimeout(() => setError(''), 3000);
     }
   };
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      'planning': 'bg-yellow-100 text-yellow-800',
+      'in-progress': 'bg-blue-100 text-blue-800',
+      'completed': 'bg-green-100 text-green-800',
+      'on-hold': 'bg-gray-100 text-gray-800'
+    };
+    return styles[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  if (loading) {
+    return (
+      <div className="flex">
+        <Sidebar />
+        <div className="flex-1 min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading projects...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex bg-linear-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
+    <div className="flex">
       <Sidebar />
+      <div className="flex-1 min-h-screen bg-gray-50">
+      <div className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <h1 className="text-3xl font-bold text-gray-900">Projects Management</h1>
+          <p className="mt-1 text-sm text-gray-600">Total projects: {filteredProjects.length}</p>
+        </div>
+      </div>
 
-      <main className="flex-1 p-8 overflow-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            All Projects
-          </h1>
-          <p className="text-gray-600">Manage all projects in the system</p>
-        </motion.div>
-
-        {/* Success/Error Messages */}
-        <AnimatePresence>
-          {success && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-2"
-            >
-              <CheckCircle2 size={20} />
-              {success}
-            </motion.div>
-          )}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2"
-            >
-              <AlertCircle size={20} />
-              {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500">Loading projects...</p>
-          </div>
-        ) : projects.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12 bg-white/50 rounded-xl"
-          >
-            <Folder size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">No projects found</p>
-          </motion.div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project, index) => (
-              <motion.div
-                key={project._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all"
-              >
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1">
-                    <h3 className="font-bold text-lg text-gray-800 mb-2">{project.title}</h3>
-                    <p className="text-gray-600 text-sm line-clamp-2">{project.description}</p>
-                  </div>
-                  <Folder size={24} className="text-blue-500" />
-                </div>
-
-                <div className="flex items-center gap-2 mb-4">
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(project.status)}`}>
-                    {project.status?.replace("-", " ")}
-                  </span>
-                </div>
-
-                {project.owner && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
-                    <Users size={16} />
-                    <span>Owner: {project.owner.name}</span>
-                  </div>
-                )}
-
-                {project.teamMembers && project.teamMembers.length > 0 && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
-                    <Users size={16} />
-                    <span>{project.teamMembers.length} team member(s)</span>
-                  </div>
-                )}
-
-                {project.startDate && (
-                  <div className="flex items-center gap-2 text-sm text-gray-600 mb-4">
-                    <Calendar size={16} />
-                    <span>Started: {new Date(project.startDate).toLocaleDateString()}</span>
-                  </div>
-                )}
-
-                <div className="flex gap-2">
-                  <button
-                    disabled
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed"
-                  >
-                    <Eye size={16} />
-                    View
-                  </button>
-                  <button
-                    onClick={() => handleDeleteProject(project._id)}
-                    className="flex items-center justify-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </motion.div>
-            ))}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {success && (
+          <div className="mb-4 bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded">
+            {success}
           </div>
         )}
-      </main>
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Search projects..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Status</option>
+              <option value="planning">Planning</option>
+              <option value="in-progress">In Progress</option>
+              <option value="completed">Completed</option>
+              <option value="on-hold">On Hold</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredProjects.map((project) => (
+            <div key={project._id} className="bg-white rounded-lg shadow p-6 hover:shadow-lg transition-shadow">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">{project.title}</h3>
+              <p className="text-sm text-gray-600 mb-4 line-clamp-2">{project.description}</p>
+              
+              <div className="mb-3">
+                <span className={`px-2 py-1 text-xs font-semibold rounded-full ${getStatusBadge(project.status)}`}>
+                  {project.status}
+                </span>
+              </div>
+
+              <div className="text-sm text-gray-600 mb-2">
+                <span className="font-medium">Owner:</span> {project.owner?.name || 'N/A'}
+              </div>
+              
+              {project.teamMembers && (
+                <div className="text-sm text-gray-600 mb-2">
+                  <span className="font-medium">Team:</span> {project.teamMembers.length} member(s)
+                </div>
+              )}
+
+              {project.startDate && (
+                <div className="text-sm text-gray-600 mb-4">
+                  <span className="font-medium">Start:</span> {new Date(project.startDate).toLocaleDateString()}
+                </div>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleEditClick(project)}
+                  className="flex-1 px-4 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => handleDeleteClick(project)}
+                  className="flex-1 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {filteredProjects.length === 0 && (
+          <div className="text-center py-12 text-gray-500">
+            No projects found
+          </div>
+        )}
+      </div>
+
+      {/* Edit Project Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Project</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={editFormData.title}
+                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  rows="3"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={editFormData.status}
+                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="planning">Planning</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="completed">Completed</option>
+                  <option value="on-hold">On Hold</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                <input
+                  type="date"
+                  value={editFormData.startDate}
+                  onChange={(e) => setEditFormData({ ...editFormData, startDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                <input
+                  type="date"
+                  value={editFormData.endDate}
+                  onChange={(e) => setEditFormData({ ...editFormData, endDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditConfirm}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Update Project
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Confirm Delete</h2>
+            <p className="text-gray-600 mb-6">
+              Deleting this project will also delete all associated tasks. This action cannot be undone. 
+              Are you sure you want to continue?
+            </p>
+            <div className="flex gap-4 justify-end">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
     </div>
   );
 };

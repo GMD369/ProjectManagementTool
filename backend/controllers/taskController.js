@@ -23,7 +23,7 @@ export const createTask = async (req, res) => {
       title,
       description,
       project: projectId,
-      assignedTo,
+      assignedTo: assignedTo || req.user.id, // Default to current user if not specified
       priority,
       dueDate
     });
@@ -175,3 +175,4 @@ export const deleteTask = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+

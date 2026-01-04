@@ -1,197 +1,285 @@
-import React, { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
-import Sidebar from "../../components/Sidebar";
-import {
-  Users,
-  Trash2,
-  Shield,
-  Mail,
-  Calendar,
-  AlertCircle,
-  CheckCircle2
-} from "lucide-react";
-import { getAllUsers, deleteUser, updateUserRole } from "../../api/admin";
-import { isAdmin } from "../../utils/auth";
+import { useState, useEffect } from 'react';
+import Sidebar from '../../components/Sidebar';
+import api from '../../api/axios';
 
 const UserManagement = () => {
   const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-  const navigate = useNavigate();
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('all');
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showRoleModal, setShowRoleModal] = useState(false);
+  const [newRole, setNewRole] = useState('');
 
   useEffect(() => {
-    if (!isAdmin()) {
-      navigate("/dashboard");
-      return;
-    }
     fetchUsers();
-  }, [navigate]);
+  }, []);
+
+  useEffect(() => {
+    if (Array.isArray(users)) {
+      filterUsers();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, roleFilter, users]);
 
   const fetchUsers = async () => {
     try {
-      setError(null);
-      const data = await getAllUsers();
-      setUsers(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      setError("Failed to load users");
+      const response = await api.get('/admin/users');
+      // Handle both array response and object with users property
+      const usersData = Array.isArray(response.data) 
+        ? response.data 
+        : (response.data.users && Array.isArray(response.data.users) 
+          ? response.data.users 
+          : []);
+      setUsers(usersData);
+      setError('');
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to load users');
+      setUsers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDeleteUser = async (userId) => {
-    if (window.confirm("Are you sure you want to delete this user? This action cannot be undone.")) {
-      try {
-        setError(null);
-        await deleteUser(userId);
-        setSuccess("User deleted successfully!");
-        fetchUsers();
-        setTimeout(() => setSuccess(null), 3000);
-      } catch (error) {
-        console.error("Error deleting user:", error);
-        setError(error.response?.data?.message || "Failed to delete user");
-      }
+  const filterUsers = () => {
+    if (!Array.isArray(users)) {
+      setFilteredUsers([]);
+      return;
+    }
+    
+    let filtered = [...users];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(user =>
+        user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Role filter
+    if (roleFilter !== 'all') {
+      filtered = filtered.filter(user => user.role === roleFilter);
+    }
+
+    setFilteredUsers(filtered);
+  };
+
+  const handleDeleteClick = (user) => {
+    setSelectedUser(user);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    try {
+      await api.delete(`/admin/users/${selectedUser._id}`);
+      setSuccess('User deleted successfully');
+      setUsers(users.filter(u => u._id !== selectedUser._id));
+      setShowDeleteModal(false);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to delete user');
+      setTimeout(() => setError(''), 3000);
     }
   };
 
-  const handleUpdateRole = async (userId, newRole) => {
+  const handleRoleClick = (user) => {
+    setSelectedUser(user);
+    setNewRole(user.role);
+    setShowRoleModal(true);
+  };
+
+  const handleRoleChange = async () => {
     try {
-      setError(null);
-      await updateUserRole(userId, newRole);
-      setSuccess("User role updated successfully!");
-      fetchUsers();
-      setTimeout(() => setSuccess(null), 3000);
-    } catch (error) {
-      console.error("Error updating role:", error);
-      setError(error.response?.data?.message || "Failed to update role");
+      await api.patch(`/admin/users/${selectedUser._id}/role`, { role: newRole });
+      setSuccess('User role updated successfully');
+      setUsers(users.map(u => u._id === selectedUser._id ? { ...u, role: newRole } : u));
+      setShowRoleModal(false);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to update role');
+      setTimeout(() => setError(''), 3000);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="flex">
+        <Sidebar />
+        <div className="flex-1 min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading users...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex bg-linear-to-br from-gray-50 via-blue-50 to-purple-50 min-h-screen">
+    <div className="flex">
       <Sidebar />
+      <div className="flex-1 min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
+          <p className="mt-1 text-sm text-gray-600">Manage all system users</p>
+        </div>
+      </div>
 
-      <main className="flex-1 p-8 overflow-auto">
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h1 className="text-4xl font-bold bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            User Management
-          </h1>
-          <p className="text-gray-600">Manage all system users and roles</p>
-        </motion.div>
-
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Success/Error Messages */}
-        <AnimatePresence>
-          {success && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="mb-6 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg flex items-center gap-2"
-            >
-              <CheckCircle2 size={20} />
-              {success}
-            </motion.div>
-          )}
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="mb-6 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg flex items-center gap-2"
-            >
-              <AlertCircle size={20} />
-              {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {loading ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500">Loading users...</p>
-          </div>
-        ) : users.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-12 bg-white/50 rounded-xl"
-          >
-            <Users size={48} className="mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-500">No users found</p>
-          </motion.div>
-        ) : (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {users.map((user, index) => (
-              <motion.div
-                key={user._id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.05 }}
-                className="bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 bg-linear-to-r from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                      {user.name?.charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-lg text-gray-800">{user.name}</h3>
-                      <div className="flex items-center gap-1 text-sm text-gray-500">
-                        <Mail size={14} />
-                        <span className="truncate">{user.email}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Role Badge */}
-                <div className="flex items-center gap-2 mb-4">
-                  <Shield size={16} className={user.role === "admin" ? "text-red-600" : "text-blue-600"} />
-                  <span className={`text-sm font-semibold capitalize ${
-                    user.role === "admin" ? "text-red-600" : "text-blue-600"
-                  }`}>
-                    {user.role}
-                  </span>
-                </div>
-
-                {/* Created Date */}
-                {user.createdAt && (
-                  <div className="flex items-center gap-2 text-sm text-gray-500 mb-4">
-                    <Calendar size={14} />
-                    <span>Joined {new Date(user.createdAt).toLocaleDateString()}</span>
-                  </div>
-                )}
-
-                {/* Actions */}
-                <div className="space-y-2">
-                  <select
-                    value={user.role}
-                    onChange={(e) => handleUpdateRole(user._id, e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                  >
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
-
-                  <button
-                    onClick={() => handleDeleteUser(user._id)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition-colors"
-                  >
-                    <Trash2 size={16} />
-                    Delete User
-                  </button>
-                </div>
-              </motion.div>
-            ))}
+        {success && (
+          <div className="mb-4 bg-green-50 border border-green-400 text-green-700 px-4 py-3 rounded">
+            {success}
           </div>
         )}
-      </main>
+        {error && (
+          <div className="mb-4 bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="bg-white rounded-lg shadow p-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Search by name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Roles</option>
+              <option value="admin">Admin</option>
+              <option value="member">Member</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Users Table */}
+        <div className="bg-white rounded-lg shadow overflow-hidden">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-white divide-y divide-gray-200">
+              {filteredUsers.map((user) => (
+                <tr key={user._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{user.name}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{user.email}</td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                      user.role === 'admin' ? 'bg-purple-100 text-purple-800' : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {user.role}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    {new Date(user.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-2">
+                    <button
+                      onClick={() => handleRoleClick(user)}
+                      className="text-blue-600 hover:text-blue-900"
+                    >
+                      Change Role
+                    </button>
+                    <button
+                      onClick={() => handleDeleteClick(user)}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {filteredUsers.length === 0 && (
+            <div className="text-center py-8 text-gray-500">
+              No users found
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Delete Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Confirm Delete</h2>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete user <strong>{selectedUser?.name}</strong>? This action cannot be undone.
+            </p>
+            <div className="flex gap-4 justify-end">
+              <button
+                onClick={() => setShowDeleteModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Role Change Modal */}
+      {showRoleModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Change User Role</h2>
+            <p className="text-gray-600 mb-4">
+              Change role for <strong>{selectedUser?.name}</strong>
+            </p>
+            <select
+              value={newRole}
+              onChange={(e) => setNewRole(e.target.value)}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 mb-6"
+            >
+              <option value="admin">Admin</option>
+              <option value="member">Member</option>
+            </select>
+            <div className="flex gap-4 justify-end">
+              <button
+                onClick={() => setShowRoleModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRoleChange}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Update Role
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      </div>
     </div>
   );
 };

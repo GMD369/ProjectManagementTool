@@ -9,10 +9,12 @@ import {
   User,
   AlertCircle,
   CheckCircle2,
-  Eye
+  Eye,
+  Edit
 } from "lucide-react";
 import { adminGetAllTasks, adminDeleteTask } from "../../api/admin";
 import { isAdmin } from "../../utils/auth";
+import api from "../../api/axios";
 
 const AdminTasks = () => {
   const [tasks, setTasks] = useState([]);
@@ -20,6 +22,15 @@ const AdminTasks = () => {
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [editFormData, setEditFormData] = useState({
+    title: '',
+    description: '',
+    status: '',
+    priority: '',
+    dueDate: ''
+  });
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,12 +46,41 @@ const AdminTasks = () => {
       setError(null);
       const data = await adminGetAllTasks();
       const tasksArray = data.tasks || data;
-      setTasks(Array.isArray(tasksArray) ? tasksArray : []);
+      // Filter to show only member tasks (exclude tasks assigned to admins)
+      const memberTasks = Array.isArray(tasksArray) 
+        ? tasksArray.filter(task => task.assignedTo?.role !== 'admin')
+        : [];
+      setTasks(memberTasks);
     } catch (error) {
       console.error("Error fetching tasks:", error);
       setError("Failed to load tasks");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleEditClick = (task) => {
+    setSelectedTask(task);
+    setEditFormData({
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      priority: task.priority,
+      dueDate: task.dueDate ? new Date(task.dueDate).toISOString().split('T')[0] : ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleEditConfirm = async () => {
+    try {
+      await api.put(`/tasks/${selectedTask._id}`, editFormData);
+      setSuccess("Task updated successfully!");
+      fetchTasks();
+      setShowEditModal(false);
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      console.error("Error updating task:", error);
+      setError(error.response?.data?.message || "Failed to update task");
     }
   };
 
@@ -206,11 +246,11 @@ const AdminTasks = () => {
 
                 <div className="flex gap-2">
                   <button
-                    disabled
-                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-100 text-gray-400 rounded-lg cursor-not-allowed"
+                    onClick={() => handleEditClick(task)}
+                    className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition-colors"
                   >
-                    <Eye size={16} />
-                    View
+                    <Edit size={16} />
+                    Edit
                   </button>
                   <button
                     onClick={() => handleDeleteTask(task._id)}
@@ -224,6 +264,84 @@ const AdminTasks = () => {
           </div>
         )}
       </main>
+
+      {/* Edit Task Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Edit Task</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={editFormData.title}
+                  onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                  rows="3"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select
+                  value={editFormData.status}
+                  onChange={(e) => setEditFormData({ ...editFormData, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="todo">To Do</option>
+                  <option value="in-progress">In Progress</option>
+                  <option value="review">Review</option>
+                  <option value="completed">Completed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                <select
+                  value={editFormData.priority}
+                  onChange={(e) => setEditFormData({ ...editFormData, priority: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Due Date</label>
+                <input
+                  type="date"
+                  value={editFormData.dueDate}
+                  onChange={(e) => setEditFormData({ ...editFormData, dueDate: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditConfirm}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Update Task
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

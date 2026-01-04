@@ -9,7 +9,8 @@ export const createProject = async (projectData) => {
 // Get all projects for the logged-in user
 export const getAllProjects = async () => {
   const response = await api.get("/projects");
-  return response.data;
+  console.log("Projects response:", response.data);
+  return Array.isArray(response.data) ? response.data : (response.data.data || response.data.projects || []);
 };
 
 // Get a specific project by ID

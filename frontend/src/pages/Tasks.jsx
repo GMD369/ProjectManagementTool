@@ -41,10 +41,16 @@ const Tasks = () => {
     try {
       setError(null);
       const data = await getMyTasks();
-      setTasks(data);
+      console.log("Fetched tasks in Tasks page:", data);
+      
+      // Ensure data is an array
+      const tasksArray = Array.isArray(data) ? data : [];
+      setTasks(tasksArray);
     } catch (error) {
       console.error("Error fetching tasks:", error);
+      console.error("Error response:", error.response);
       setError("Failed to load tasks. Please try again.");
+      setTasks([]); // Set empty array to avoid breaking the UI
     } finally {
       setLoading(false);
     }
@@ -53,13 +59,15 @@ const Tasks = () => {
   const handleCreateTask = async (taskData) => {
     try {
       setError(null);
-      await createTask(taskData);
+      const result = await createTask(taskData);
+      console.log("Task created:", result);
       setSuccess("Task created successfully!");
-      fetchTasks();
+      await fetchTasks(); // Refresh tasks list
       setShowCreateModal(false);
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       console.error("Error creating task:", error);
+      console.error("Error response:", error.response);
       const errorMsg = error.response?.data?.message || "Failed to create task. Make sure you have created a project first.";
       setError(errorMsg);
     }
@@ -68,14 +76,16 @@ const Tasks = () => {
   const handleUpdateTask = async (taskData) => {
     try {
       setError(null);
-      await updateTask(selectedTask._id, taskData);
+      const result = await updateTask(selectedTask._id, taskData);
+      console.log("Task updated:", result);
       setSuccess("Task updated successfully!");
-      fetchTasks();
+      await fetchTasks(); // Refresh tasks list
       setShowEditModal(false);
       setSelectedTask(null);
       setTimeout(() => setSuccess(null), 3000);
     } catch (error) {
       console.error("Error updating task:", error);
+      console.error("Error response:", error.response);
       const errorMsg = error.response?.data?.message || "Failed to update task";
       setError(errorMsg);
     }
@@ -84,10 +94,12 @@ const Tasks = () => {
   const handleStatusChange = async (taskId, status) => {
     try {
       setError(null);
-      await updateTaskStatus(taskId, status);
-      fetchTasks();
+      const result = await updateTaskStatus(taskId, status);
+      console.log("Task status updated:", result);
+      await fetchTasks(); // Refresh tasks list
     } catch (error) {
       console.error("Error updating status:", error);
+      console.error("Error response:", error.response);
       setError("Failed to update task status");
     }
   };
@@ -96,12 +108,14 @@ const Tasks = () => {
     if (window.confirm("Are you sure you want to delete this task?")) {
       try {
         setError(null);
-        await deleteTask(taskId);
+        const result = await deleteTask(taskId);
+        console.log("Task deleted:", result);
         setSuccess("Task deleted successfully!");
-        fetchTasks();
+        await fetchTasks(); // Refresh tasks list
         setTimeout(() => setSuccess(null), 3000);
       } catch (error) {
         console.error("Error deleting task:", error);
+        console.error("Error response:", error.response);
         setError("Failed to delete task");
       }
     }

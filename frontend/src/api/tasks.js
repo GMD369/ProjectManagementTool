@@ -9,13 +9,17 @@ export const createTask = async (taskData) => {
 // Get all tasks for a specific project
 export const getProjectTasks = async (projectId) => {
   const response = await api.get(`/tasks/project/${projectId}`);
-  return response.data;
+  console.log("Project tasks response:", response.data);
+  return Array.isArray(response.data) ? response.data : (response.data.data || response.data.tasks || []);
 };
 
 // Get tasks assigned to the logged-in user
 export const getMyTasks = async () => {
   const response = await api.get("/tasks/my-tasks");
-  return response.data;
+  console.log("API Response:", response);
+  console.log("Tasks data:", response.data);
+  // Handle both direct array and wrapped response
+  return Array.isArray(response.data) ? response.data : (response.data.data || response.data.tasks || []);
 };
 
 // Update a task
